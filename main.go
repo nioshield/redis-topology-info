@@ -12,12 +12,13 @@ import (
 	"unicode/utf8"
 
 	"github.com/c-bata/go-prompt"
+	"github.com/garyburd/redigo/redis"
 	"github.com/spf13/cobra"
-	"github.com/winjeg/redis"
 )
 
 var Options = &struct {
-	Auth string
+	Auth       string
+	QuerySalve bool
 }{}
 
 type RedisOpiton struct {
@@ -59,7 +60,9 @@ func readRedisOpiton() []*RedisOpiton {
 		}
 
 		cluster.ShowText = fmt.Sprintf("%s:%d:%s", host, port, "online")
-		cluster.Slaves = getSlaves(host, port)
+		if Options.QuerySalve {
+			cluster.Slaves = getSlaves(host, port)
+		}
 		redisClusters = append(redisClusters, cluster)
 	}
 	return redisClusters
@@ -118,11 +121,12 @@ func commandRecursive(command, prefix string, cluster []*RedisOpiton, call func(
 }
 
 func commandText(command, ip string, port int) []string {
-	c := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%d", ip, port),
-		Password: Options.Auth,
-	})
-	text, err := c.Do("info", command).String()
+	addr := fmt.Sprintf("redis://%s:%d", ip, port)
+	c, err := redis.DialURL(addr, redis.DialPassword(Options.Auth))
+	if err != nil {
+		log.Fatalln(err)
+	}
+	text, err := redis.String(c.Do("info", command))
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -255,6 +259,7 @@ func main() {
 
 	cmd := cobra.Command{Use: "redis-info"}
 	cmd.PersistentFlags().StringVarP(&Options.Auth, "auth", "a", "", "redis auth")
+	cmd.PersistentFlags().BoolVarP(&Options.QuerySalve, "slave", "s", true, "query slave info")
 	cmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
 		c.redis = readRedisOpiton()
 	}

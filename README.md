@@ -31,4 +31,8 @@ cat redis.txt | redis-topology-info -a <auth> memory mem_fragmentation_ratio
 - stats 
 - cpu 
 - cluster 
-- keyspace 
+- keyspace
+```
+```
+```
+```
